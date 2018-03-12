@@ -52,13 +52,11 @@ int main()
 	in.read(reinterpret_cast<char*>(&fileheader), sizeof(fileheader));
 	PrintWAVHeader(fileheader);
 
-	int16_t* samples16;
-	uint8_t* samples8;
 	std::ofstream out("output_samples");
 	std::cout << "Writing sample values to file..." << std::endl;
 	if (fileheader.BITRATE == 16)
 	{
-		samples16 = new int16_t[fileheader.SUBCHUNK2_SIZE];
+		int16_t* samples16 = new int16_t[fileheader.SUBCHUNK2_SIZE];
 		in.read(reinterpret_cast<char*>(samples16), fileheader.SUBCHUNK2_SIZE);
 		out.write(reinterpret_cast<char*>(samples16), fileheader.SUBCHUNK2_SIZE);
 
@@ -66,7 +64,7 @@ int main()
 	}
 	else if (fileheader.BITRATE == 8)
 	{
-		samples8 = new uint8_t[fileheader.SUBCHUNK2_SIZE];
+		uint8_t* samples8 = new uint8_t[fileheader.SUBCHUNK2_SIZE];
 		in.read(reinterpret_cast<char*>(samples8), fileheader.SUBCHUNK2_SIZE);
 		out.write(reinterpret_cast<char*>(samples8), fileheader.SUBCHUNK2_SIZE);
 
