@@ -29,7 +29,7 @@ void PrintWAVHeader(HEADER_WAV fileheader);
 void GenSineWAV(const char* filename, float seconds, float freq, float amplitude, int channels = 1, int sample_rate = 8000, int bitrate = 16);
 std::unique_ptr<int16_t> GenSine(float seconds, float freq, float amplitude, int sample_rate = 8000);
 void WriteWAV(const char* filename, HEADER_WAV header, const char* data);
-HEADER_WAV GenWAVHeader(int channels, int sample_rate, int bitrate);
+HEADER_WAV GenWAVHeader(int channels, int num_samples, int sample_rate, int bitrate);
 
 int main()
 {
@@ -56,7 +56,7 @@ int main()
 	std::cout << "Writing sample values to file..." << std::endl;
 	if (fileheader.BITRATE == 16)
 	{
-		int16_t* samples16 = new int16_t[fileheader.SUBCHUNK2_SIZE];
+		int16_t* samples16 = new int16_t[std::ceil(fileheader.SUBCHUNK2_SIZE / (float)sizeof(int16_t))];
 		in.read(reinterpret_cast<char*>(samples16), fileheader.SUBCHUNK2_SIZE);
 		out.write(reinterpret_cast<char*>(samples16), fileheader.SUBCHUNK2_SIZE);
 
@@ -83,17 +83,17 @@ int main()
 
 	int channels = 1;
 	int seconds = 2;
-	int sample_rate = 8000;
+	int sample_rate = 44100;
 	int bitrate = 16;
-	size_t size = seconds * sample_rate;
+	size_t num_samples = seconds * sample_rate;
 	auto sine1_samples = GenSine(seconds, 400, 15000, sample_rate);
 	auto sine2_samples = GenSine(seconds, 1000, 10000, sample_rate);
-	auto sine3_samples = std::unique_ptr<int16_t>{ new int16_t[size] };
-	for (auto i = 0; i < size; ++i)
+	auto sine3_samples = std::unique_ptr<int16_t>{ new int16_t[num_samples] };
+	for (auto i = 0; i < num_samples; ++i)
 	{
 		sine3_samples.get()[i] = sine1_samples.get()[i] + sine2_samples.get()[i];
 	}
-	HEADER_WAV sine3_header = GenWAVHeader(channels, sample_rate, bitrate);
+	HEADER_WAV sine3_header = GenWAVHeader(channels, num_samples, sample_rate, bitrate);
 	WriteWAV("sine3.wav", sine3_header, reinterpret_cast<char*>(sine3_samples.get()));
 
 	out.close();
@@ -107,7 +107,7 @@ int main()
 
 void WriteWAV(const char* filename, HEADER_WAV header, const char* data)
 {
-	std::ofstream out(filename);
+	std::ofstream out(filename, std::ios::out | std::ios::binary);
 
 	out.write(reinterpret_cast<char*>(&header), sizeof(header));
 	out.write(data, header.SUBCHUNK2_SIZE);
@@ -133,13 +133,14 @@ void GenSineWAV(const char* filename, float seconds, float freq, float amplitude
 
 	auto sine_samples = GenSine(seconds, freq, amplitude, sample_rate);
 
-	HEADER_WAV sine_header = GenWAVHeader(channels, sample_rate, bitrate);
+	auto num_samples = seconds * sample_rate;
+	HEADER_WAV sine_header = GenWAVHeader(channels, num_samples, sample_rate, bitrate);
 	WriteWAV(filename, sine_header, reinterpret_cast<char*>(sine_samples.get()));
 
 	out.close();
 }
 
-HEADER_WAV GenWAVHeader(int channels, int sample_rate, int bitrate)
+HEADER_WAV GenWAVHeader(int channels, int num_samples, int sample_rate, int bitrate)
 {
 	HEADER_WAV header;
 	header.RIFF[0] = 'R';
@@ -166,7 +167,7 @@ HEADER_WAV GenWAVHeader(int channels, int sample_rate, int bitrate)
 	header.BYTES_PER_SEC = sample_rate * channels * bytes; // * (bitrate / 8.0f);
 	header.BLOCK_ALIGN = channels * bytes;
 	header.BITRATE = bitrate;
-	header.SUBCHUNK2_SIZE = sample_rate * channels * bytes;
+	header.SUBCHUNK2_SIZE = num_samples * channels * bytes;
 
 	header.AUDIO_FORMAT = 1;
 
